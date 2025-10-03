@@ -1,0 +1,101 @@
+<template>
+    <div id="numpad" class="grid grid-flow-row grid-cols-3 gap-2 grid-rows-3" style="padding: 1px">
+        <div 
+            @click="inputValue( key )"
+            :key="index" 
+            v-for="(key,index) of keys" 
+            style="margin:-1px;"
+            class="select-none hover:bg-gray-400 hover:text-gray-800 bg-gray-300 text-2xl text-gray-700 border h-16 flex items-center justify-center cursor-pointer">
+            <span v-if="key.value !== undefined">{{ key.value }}</span>
+            <i v-if="key.icon" class="las" :class="key.icon"></i>
+        </div>
+        <slot name="numpad-footer"></slot>
+    </div>
+</template>
+<script>
+export default {
+    name: 'ns-numpad',
+    props: [ 'value', 'currency', 'floating', 'limit' ],
+    data() {
+        return {
+            number: parseInt( 
+                1 + ( new Array( parseInt( ns.currency.ns_currency_precision ) ) )
+                .fill('')
+                .map( _ => 0 )
+                .join('') 
+            ),
+            order: null,
+            cursor: parseInt( ns.currency.ns_currency_precision ),
+            orderSubscription: null,
+            allSelected: true,
+            keys: [
+                ...([7,8,9].map( key => ({ identifier: key, value: key }))),
+                ...([4,5,6].map( key => ({ identifier: key, value: key }))),
+                ...([1,2,3].map( key => ({ identifier: key, value: key }))),
+                ...[{ identifier: 'backspace', icon : 'la-backspace' },{ identifier: 0, value: 0 }, { identifier: 'next', icon: 'la-share' }],
+            ]
+        }
+    },
+    computed: {
+        screenValue() {
+            return this.value === undefined ? 0 : this.value;
+        }
+    },
+    methods: {
+        increaseBy( key ) {
+            let number    =   parseInt( 
+                1 + ( new Array( this.cursor ) )
+                .fill('')
+                .map( _ => 0 )
+                .join('') 
+            );
+
+            this.screenValue      =   (( parseFloat( key.value ) * number ) + ( parseFloat( this.screenValue ) || 0 ) ).toString();
+            this.allSelected    =   false;
+        },
+
+        inputValue( key ) {
+            let screenValue     =   this.screenValue;
+            let number    =   parseInt( 
+                1 + ( new Array( this.cursor ) )
+                .fill('')
+                .map( _ => 0 )
+                .join('') 
+            );
+
+            if ( key.identifier === 'next' ) {
+                this.$emit( 'next', this.floating && this.screenValue.length > 0 ? parseFloat( this.screenValue / this.number ) : this.screenValue );
+                return;
+            } else if ( key.identifier === 'backspace' ) {
+                if ( this.allSelected ) {
+                    screenValue      =   '0';
+                    this.allSelected    =   false;
+                } else {
+                    screenValue      =   this.screenValue.substr( 0, this.screenValue.length - 1 );
+                }
+            } else if ( key.value.toString().match( /^\d+$/ ) ) {
+                if ( this.limit > 0 && this.screenValue.length >= this.limit ) {
+                    return;
+                }
+                
+                if ( this.allSelected ) {
+                    screenValue      =   key.value.toString();
+                    this.allSelected    =   false;
+                } else {
+                    screenValue      +=  key.value.toString();
+
+                    if ( this.mode === 'percentage' ) {
+                        screenValue = this.screenValue > 100 ? 100 : this.screenValue;
+                    }
+                }
+            } 
+
+            if ( ( screenValue ) === "0" ) {
+                screenValue      =   '';
+            }
+
+            this.$emit( 'changed', this.floating && screenValue.length > 0 ? parseFloat( screenValue / this.number ) : screenValue );
+        }
+    }
+}
+</script>
